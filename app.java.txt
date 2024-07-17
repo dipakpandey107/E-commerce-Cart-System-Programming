@@ -1,0 +1,79 @@
+import java.util.*;
+
+abstract class Product implements Cloneable {
+    private String name;
+    private double price;
+    private boolean available;
+
+    public Product(String name, double price, boolean available) {
+        this.name = name; this.price = price; this.available = available;
+    }
+
+    public String getName() { return name; }
+    public double getPrice() { return price; }
+    @Override protected Object clone() throws CloneNotSupportedException { return super.clone(); }
+}
+
+class Laptop extends Product { public Laptop() { super("Laptop", 1000, true); } }
+class Headphones extends Product { public Headphones() { super("Headphones", 50, true); } }
+
+class CartItem {
+    private Product product; private int quantity;
+    public CartItem(Product product, int quantity) {
+        this.product = product; this.quantity = quantity;
+    }
+    public Product getProduct() { return product; }
+    public int getQuantity() { return quantity; }
+    public void setQuantity(int quantity) { this.quantity = quantity; }
+}
+
+class Cart {
+    private Map<String, CartItem> items = new HashMap<>();
+    public void addProduct(Product product) throws CloneNotSupportedException {
+        String name = product.getName();
+        if (items.containsKey(name)) items.get(name).setQuantity(items.get(name).getQuantity() + 1);
+        else items.put(name, new CartItem((Product) product.clone(), 1));
+    }
+    public void updateQuantity(String name, int qty) {
+        if (items.containsKey(name)) items.get(name).setQuantity(qty);
+    }
+    public void removeProduct(String name) { items.remove(name); }
+    public double calculateTotal(DiscountStrategy strategy) {
+        double total = items.values().stream().mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity()).sum();
+        return strategy.applyDiscount(total);
+    }
+    public String viewCart() {
+        StringBuilder sb = new StringBuilder();
+        items.values().forEach(i -> sb.append(String.format("You have %d %s(s) in your cart.\n", i.getQuantity(), i.getProduct().getName())));
+        return sb.toString();
+    }
+}
+
+interface DiscountStrategy { double applyDiscount(double total); }
+class NoDiscount implements DiscountStrategy { public double applyDiscount(double total) { return total; } }
+class PercentageDiscount implements DiscountStrategy {
+    private double percentage; public PercentageDiscount(double percentage) { this.percentage = percentage; }
+    public double applyDiscount(double total) { return total * (1 - percentage / 100); }
+}
+class BuyOneGetOneFree implements DiscountStrategy { public double applyDiscount(double total) { return total / 2; } }
+
+public class Main {
+    public static void main(String[] args) {
+        try {
+            Product laptop = new Laptop(); Product headphones = new Headphones();
+            Cart cart = new Cart();
+            cart.addProduct(laptop); cart.addProduct(headphones); cart.addProduct(laptop);
+            System.out.println(cart.viewCart()); 
+            cart.updateQuantity("Laptop", 2); 
+            System.out.println(cart.viewCart()); 
+            cart.removeProduct("Headphones"); // Removing headphones
+            System.out.println(cart.viewCart());
+
+            DiscountStrategy noDiscount = new NoDiscount();
+            DiscountStrategy percentageDiscount = new PercentageDiscount(10);
+            DiscountStrategy bogo = new BuyOneGetOneFree();
+
+            System.out.println("Total with no discount: $" + cart.calculateTotal(noDiscount));             System.out.println("Total with 10% discount: $" + cart.calculateTotal(percentageDiscount));            System.out.println("Total with BOGO discount: $" + cart.calculateTotal(bogo)); 
+        } catch (CloneNotSupportedException e) { e.printStackTrace(); }
+    }
+}
